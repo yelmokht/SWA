@@ -1,0 +1,98 @@
+#!/bin/bash
+
+rm projetprelim &> /dev/null
+rm *.o &> /dev/null
+make projetprelim &> /dev/null
+if [ $? -ne 0 ]; then
+    echo "La commande 'make projetprelim' a échoué, celle-ci devrait fonctionner dans ce dossier."
+    exit 1
+else
+	echo "La compilation semble avoir été réalisée avec succès."
+fi
+
+DB="database/uniprot_sprot.fasta"
+
+if [[ ! -f "$DB.psq" ]]; then
+    echo "Le fichier binaire $DB.psq n'existe pas, celui-ci est nécessaire pour le test."
+fi
+
+if [[ ! -f "$DB.pin" ]]; then
+    echo "Le fichier binaire $DB.pin n'existe pas, celui-ci est nécessaire pour le test."
+fi
+
+if [[ ! -f "$DB.phr" ]]; then
+    echo "Le fichier binaire $DB.phr n'existe pas, celui-ci est nécessaire pour le test."
+fi
+
+if [[ -f "$DB" ]]; then
+    echo "Le fichier fasta $DB ne devrait pas être utilisé par votre programme."
+    echo "Celui-ci a été temporairement renommé $DB.temp."
+    mv "$DB" "$DB.temp"
+fi
+
+
+TOUT_FONCTIONNE=true
+
+QUERY="query_testprelim/testprelim1.fasta"
+OUTPUT=$(./projetprelim $QUERY $DB)
+SOLUTION="sp|P07327|ADH1A_HUMAN"
+if [ "$OUTPUT" != "$SOLUTION" ]; then
+	echo "L'output de votre programme n'est pas celui attendu pour le fichier de requête $QUERY."
+	echo "Output attendu:"
+	echo $SOLUTION
+	echo "Output de votre programme:"
+	echo $OUTPUT
+	TOUT_FONCTIONNE=false
+else
+	echo "Le programme fonctionne comme prévu pour le fichier de requête $QUERY."
+fi
+
+QUERY="query_testprelim/testprelim2.fasta"
+OUTPUT=$(./projetprelim $QUERY $DB)
+SOLUTION="sp|P00533|EGFR_HUMAN"
+if [ "$OUTPUT" != "$SOLUTION" ]; then
+	echo "L'output de votre programme n'est pas celui attendu pour le fichier de requête $QUERY."
+	echo "Output attendu:"
+	echo $SOLUTION
+	echo "Output de votre programme:"
+	echo $OUTPUT
+	TOUT_FONCTIONNE=false
+else
+	echo "Le programme fonctionne comme prévu pour le fichier de requête $QUERY."
+fi
+
+QUERY="query_testprelim/testprelim3.fasta"
+OUTPUT=$(./projetprelim $QUERY $DB)
+SOLUTION="sp|Q9Y6V0|PCLO_HUMAN"
+if [ "$OUTPUT" != "$SOLUTION" ]; then
+	echo "L'output de votre programme n'est pas celui attendu pour le fichier de requête $QUERY."
+	echo "Output attendu:"
+	echo $SOLUTION
+	echo "Output de votre programme:"
+	echo $OUTPUT
+	TOUT_FONCTIONNE=false
+else
+	echo "Le programme fonctionne comme prévu pour le fichier de requête $QUERY."
+fi
+
+QUERY="query_testprelim/testprelim4.fasta"
+OUTPUT=$(./projetprelim $QUERY $DB)
+SOLUTION="sp|P0DTC2|SPIKE_SARS2"
+if [ "$OUTPUT" != "$SOLUTION" ]; then
+	echo "L'output de votre programme n'est pas celui attendu pour le fichier de requête $QUERY."
+	echo "Output attendu:"
+	echo $SOLUTION
+	echo "Output de votre programme:"
+	echo $OUTPUT
+	TOUT_FONCTIONNE=false
+else
+	echo "Le programme fonctionne comme prévu pour le fichier de requête $QUERY."
+fi
+
+if [[ -f "$DB.temp" ]]; then
+    mv "$DB.temp" "$DB"
+fi
+
+if [ "$TOUT_FONCTIONNE" = true ]; then
+	echo "Félicitations! Votre programme passe ce test préliminaire."
+fi

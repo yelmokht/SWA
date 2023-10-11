@@ -1,0 +1,125 @@
+#!/bin/bash
+
+shopt -s extglob
+
+TEMPFOLDER=temp
+# Time command: time for Linux and gtime for MacOS (gnu-time installed via Homebrew)
+TIME=time
+
+EXECUTABLE=projet
+ARGS=()
+ARGS+=( "query_testfinal/P07327.fasta database/testdatabase.fasta blosum/BLOSUM62 11 1" )
+ARGS+=( "query_testfinal/P00533.fasta database/testdatabase.fasta blosum/BLOSUM62 11 1" )
+ARGS+=( "query_testfinal/Q9Y6V0.fasta database/testdatabase.fasta blosum/BLOSUM62 11 1" )
+ARGS+=( "query_testfinal/P0DTC2.fasta database/testdatabase.fasta blosum/BLOSUM62 11 1" )
+
+PREFIXSOLUTIONFILES="query_testfinal/solution_test_"
+
+mkdir -p $TEMPFOLDER
+
+	exec 3>/dev/null 4>&1
+	echo -en "$groupe" >&3
+	TOUT_FONCTIONNE=true
+	
+	echo -e "\nCompilation:" >&4
+
+	if [ ! -f "Makefile" ]; then
+		echo -e "\nPas de fichier Makefile à la racine du dépôt, impossible de continuer les tests automatisés" >&4
+		echo -en "\tX"  >&3
+		echo -e "\nCommentaires:\n" >&4
+		TOUT_FONCTIONNE=false
+		cd ..
+		continue
+	else
+		echo -e "\nFichier Makefile présent: OK" >&4
+		echo -en "\tV"  >&3
+	fi
+	
+	make clean >/dev/null 2>/dev/null
+	rm *.o >/dev/null 2>/dev/null
+	rm $EXECUTABLE >/dev/null 2>/dev/null
+	
+	MAKEOUTPUT=$(make $EXECUTABLE 2>&1)
+	if [ $? -ne 0 ]; then
+	    echo -e "\nLa compilation de votre projet avec la commande 'make $EXECUTABLE' a échoué avec l'erreur:" >&4
+	    echo -e "$MAKEOUTPUT" >&4
+	    echo -e "\nImpossible de continuer les tests automatisés" >&4
+	    echo -en "\tX"  >&3
+	    TOUT_FONCTIONNE=false
+	else
+		if [ ! -f "projet" ]; then
+			echo -e "\nVérifiez votre Makefile: La commande 'make $EXECUTABLE' s'est terminée avec succès mais n'a pas généré l'exécutable '$EXECUTABLE'. Il est donc impossible de continuer les tests automatisés." >&4
+			echo -en "\tX"  >&3
+			continue
+		fi
+		echo -e "\nCompilation terminée avec succès" >&4
+		echo -en "\tV"  >&3
+	fi
+	
+	echo -e "\n\nVérification de la présence des fichiers nécessaires pour les tests:" >&4
+	DB="testdatabase.fasta"
+	DBPATH="database/"
+	BLOSUM="BLOSUM62"
+	BLOSUMPATH="blosum/"
+	if ! [[ -f "$DBPATH$DB.psq" && -f "$DBPATH$DB.pin" && -f "$DBPATH$DB.phr" ]]; then
+		echo -e "\nLes fichiers binaires $DB.psq, $DB.pin et $DB.phr ne sont pas tous présents dans le dossier $DBPATH.\nVeuillez télécharger le fichier $DB, générer les fichiers binaires avec makeblastdb et placer ces fichiers dans le dossier $DBPATH (uniquement sur votre machine locale: ne chargez pas les fichiers de la base de données sur votre dépôt git)." >&4
+		TOUT_FONCTIONNE=false
+	elif ! [[ -f "$BLOSUMPATH$BLOSUM" ]]; then
+		echo -e "\nLe fichier $BLOSUM n'est pas présent dans le dossier $BLOSUMPATH.\nVeuillez télécharger ce fichier et le placer dans le dossier $BLOSUMPATH (uniquement sur votre machine locale: ne chargez pas ce fichier sur votre dépôt git)." >&4
+		TOUT_FONCTIONNE=false
+	else
+		echo -e "\nLes fichiers nécessaires pour les tests sont bien présents." >&4
+	fi
+	if [[ -f "$DBPATH$DB" ]]; then
+		echo -e "\nLe fichier fasta $DB ne devrait pas être utilisé par votre programme.\nCelui-ci a été temporairement renommé $DB.temp." >&4
+		mv "$DBPATH$DB" "$DBPATH$DB.temp"
+	fi
+	if [[ $TOUT_FONCTIONNE == true ]]; then
+		echo -e "\n\nExécution:" >&4
+		for j in ${!ARGS[@]}
+		do
+			i=$(($j + 1))
+			echo -en "\t$i"  >&3
+			echo -e "\nTest $i:\n" >&4
+			$TIME -o $TEMPFOLDER/time.txt -f "%e s\t%M KB" ./${EXECUTABLE} ${ARGS[$j]} 1>$TEMPFOLDER/output.txt 2>$TEMPFOLDER/error.txt
+			# Commande à corriger: en cas d'erreur de projet, l'erreur est redirigée vers time.txt et non vers error.txt
+	#		OUTPUT=$(($TIME  -f "TIME: %e\ts RAM: %MKB" ./projetprelim $QUERY $DB) 2>&3)
+			# Essayer d'introduire un timeout:
+	#		(printf '%s\t%s\t' "Groupe-$GROUP"; TIMEFORMAT='%3R';time ( timeout 10m  ./projet$GROUP < input$GROUP > /dev/null ) ) >> $PROJECTPATH/results/timing.txt 2>&1
+			if [ $? -ne 0 ]; then
+				echo -e "\tVotre programme s'est terminé avec une erreur:" >&4
+				cat $TEMPFOLDER/error.txt >&4
+				echo -e "\tTemps et RAM utilisés: $(cat $TEMPFOLDER/time.txt)" >&4
+				echo -en "\tX\t\t"  >&3
+				TOUT_FONCTIONNE=false
+			else
+				echo -e "\tTemps et RAM utilisés: $(cat $TEMPFOLDER/time.txt)" >&4
+				echo -en "\tV\t$(cat $TEMPFOLDER/time.txt)" >&3
+			fi
+			SOLUTIONFILE="${PREFIXSOLUTIONFILES}$i.txt"
+			SOLUTION=$(cat $SOLUTIONFILE)
+			OUTPUT=$(cat $TEMPFOLDER/output.txt)
+			if [ "$OUTPUT" != "$SOLUTION" ]; then
+				TRUNCATEDOUTPUT=$(head -n 21 $TEMPFOLDER/output.txt)
+#				TRUNCATEDOUTPUT=${OUTPUT:0:100}
+				echo -e "\tECHEC\n\tRésultat esperé:\n${SOLUTION}\n\tRésultat obtenu:\n$TRUNCATEDOUTPUT" >&4
+				echo -en "\tX"  >&3
+				TOUT_FONCTIONNE=false
+			else
+				echo -e "\tSUCCES" >&4
+				echo -en "\tV"  >&3 
+			fi
+		done
+	fi
+	if [[ -f "$DBPATH$DB.temp" ]]; then
+		mv "$DBPATH$DB.temp" "$DBPATH$DB"
+	fi
+	echo -e "\n\nCommentaires:" >&4
+	if [[ $TOUT_FONCTIONNE == true ]]; then
+		echo -e "\nFélicitations! Votre programme passe ces tests avec succès." >&4
+	else
+		echo -e "\nMalheureusement, votre programme ne passe pas correctement ces tests." >&4
+	fi
+	echo -en "\n"  >&3
+
+rm -r $TEMPFOLDER

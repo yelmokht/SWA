@@ -1,0 +1,24 @@
+# Database files
+database/
+
+# Query files
+query/
+
+# BLOSUM files
+blosum/
+
+# Binary files in the root folder
+/swipe
+/swipe_folder
+/bin
+/makeblastdb
+/ssw_test
+/projetprelim
+/projet
+/projetopt
+
+# Object files
+*.o
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
